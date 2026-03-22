@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../lib/firebase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { auth, db } from "../lib/firebase";
+import { registerForPushNotificationsAsync } from "../lib/notifications";
 
 interface User {
   uid: string;
@@ -23,15 +24,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const isDev =
+    process.env.NODE_ENV === "development" ||
+    process.env.EXPO_PUBLIC_USE_EMULATORS === "true";
+
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: any) => {
       if (firebaseUser) {
-        const storedMobile = await AsyncStorage.getItem(`mobile_${firebaseUser.uid}`);
+        const storedMobile = await AsyncStorage.getItem(
+          `mobile_${firebaseUser.uid}`,
+        );
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          mobile: storedMobile || undefined
+          mobile: storedMobile || undefined,
         });
+
+        // Task 11: Handle FCM token registration
+        handleFCMRegistration(firebaseUser.uid);
       } else {
         setUser(null);
       }
@@ -40,6 +50,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return unsubscribe;
   }, []);
+
+  const handleFCMRegistration = async (uid: string) => {
+    try {
+      let token = "placeholder-dev-token";
+
+      if (!isDev) {
+        const result = await registerForPushNotificationsAsync();
+        if (result) token = result;
+      }
+
+      if (token) {
+        // Update driver record with token
+        await db.collection("drivers").doc(uid).set(
+          {
+            fcmToken: token,
+            lastActive: new Date().toISOString(),
+          },
+          { merge: true },
+        );
+        console.log(
+          `✅ FCM Token registered (${isDev ? "Dev" : "Prod"}):`,
+          token,
+        );
+      }
+    } catch (e) {
+      console.error("❌ Failed to register FCM token:", e);
+    }
+  };
 
   const login = async (email: string, pass: string) => {
     await auth.signInWithEmailAndPassword(email, pass);
@@ -58,11 +96,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const verifyOTP = async (otp: string) => {
     // Mock OTP verification - anything 123456 works
-    return otp === '123456';
+    return otp === "123456";
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, setMobile, verifyOTP }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, logout, setMobile, verifyOTP }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -71,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

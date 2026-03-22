@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "driver",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.driver",
@@ -59,9 +58,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "00000000-0000-0000-0000-000000000000"
+        "projectId": "3b90c13d-abf2-4340-836d-fde06bfad2b5"
       },
-      "projectId": "00000000-0000-0000-0000-000000000000"
+      "router": {}
     }
   }
 }

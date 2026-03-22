@@ -1,34 +1,49 @@
 import { useAuth } from "@/src/context/AuthContext";
-import { Stack } from "expo-router";
-import { LogOut } from "lucide-react-native";
-import { TouchableOpacity } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import React, { useState, useEffect } from "react";
+import { InAppBanner } from "@/components/custom/InAppBanner";
+import * as Notifications from "expo-notifications";
 
 export default function AppLayout() {
-  const { logout } = useAuth();
+  const [bannerVisible, setBannerVisible] = useState(false);
+  const [notificationData, setNotificationData] = useState<any>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      const data = notification.request.content.data;
+      if (data && data.orderId) {
+        setNotificationData(data);
+        setBannerVisible(true);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   return (
-    <Stack>
-      <Stack.Screen
-        name="index"
-        options={{
-          title: "My Deliveries",
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => logout()}
-              style={{ marginRight: 15 }}
-            >
-              <LogOut size={24} color="#FF3B30" />
-            </TouchableOpacity>
-          ),
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="map" />
+        <Stack.Screen name="details" />
+        <Stack.Screen name="create" />
+        <Stack.Screen name="profile" />
+      </Stack>
+
+      <InAppBanner
+        visible={bannerVisible}
+        orderId={notificationData?.orderId || ""}
+        customerName={notificationData?.customerName || "New Delivery"}
+        onPress={() => {
+          setBannerVisible(false);
+          router.push({
+            pathname: "/(app)/details",
+            params: { id: notificationData?.deliveryId || "" }
+          });
         }}
+        onDismiss={() => setBannerVisible(false)}
       />
-      <Stack.Screen
-        name="map"
-        options={{
-          title: "Optimised Route",
-          headerBackTitle: "Back",
-        }}
-      />
-    </Stack>
+    </>
   );
 }

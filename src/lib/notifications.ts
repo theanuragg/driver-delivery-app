@@ -34,9 +34,19 @@ export async function registerForPushNotificationsAsync() {
         Constants?.expoConfig?.extra?.eas?.projectId ??
         Constants?.expoConfig?.extra?.projectId ??
         Constants?.easConfig?.projectId;
+
+      // If projectId is the placeholder or missing, don't try to fetch token from Expo
+      if (!projectId || projectId === "00000000-0000-0000-0000-000000000000") {
+        console.warn("Skipping push token fetch: No valid projectId found.");
+        return null;
+      }
+
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     } catch (e) {
-      console.error("Error getting push token", e);
+      console.warn(
+        "Error getting push token. This is expected if not using EAS/Real Project ID:",
+        e,
+      );
     }
   }
 
