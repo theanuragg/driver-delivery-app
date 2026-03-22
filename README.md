@@ -1,223 +1,135 @@
-# FastTrack Driver: Senior Technical Assessment
+# FastTrack Driver Delivery Orchestration Platform
 
-### A production-aware delivery orchestration engine built with React Native and Firebase.
+### Enterprise-Grade Senior Technical Documentation
 
----
-
-## What this is
-
-- **Event-Driven Authentication**: Secure multi-factor flow starting with Firebase Email/Password, followed by an asynchronous mobile OTP verification step persisted via `AsyncStorage` and Firestore.
-- **Real-Time Delivery Synchronization**: Reactive delivery dashboard powered by Firestore `onSnapshot` listeners, ensuring the driver’s view is always a reflection of the current system state without manual polling.
-- **Algorithmic Route Optimization**: Heuristic-based routing using a greedy nearest-neighbor approach, integrated with the Google Directions API for road-aware navigation and traffic-compliant polylines.
-- **Resilient Notification Pipeline**: Integrated push notification handling using `expo-notifications`, featuring a decoupled development worker to simulate FCM payloads in restricted environments.
-- **Atomic Status Transitions**: State-machine guarded delivery lifecycle, allowing drivers to transition orders from `pending` to `delivered` via high-intent gestures (Slide-to-Confirm).
+The FastTrack Driver application is a high-performance, event-driven mobile platform engineered to handle real-time logistics, route optimization, and multi-factor authentication. This documentation provides a comprehensive architectural deep-dive for senior engineers and stakeholders to facilitate deployment, scaling, and maintenance.
 
 ---
 
-## Architecture overview
+## 1. Architectural Overview
 
-The system follows a decoupled service architecture, ensuring that the UI layer remains agnostic of the underlying data source (Mock vs. Real Firebase).
+### Modular Codebase Structure
 
-```ascii
-      ┌────────────────┐          ┌─────────────────────────┐
-      │  React Native  │          │    Firebase Service     │
-      │   Components   │◄─────────┤   (Firestore / Auth)    │
-      └───────┬────────┘          └────────────┬────────────┘
-              │                                │
-      ┌───────▼────────┐          ┌────────────▼────────────┐
-      │  Auth Context  │          │    Google Maps API      │
-      │ (Global State) │◄─────────┤   (Directions/Routing)  │
-      └───────┬────────┘          └────────────┬────────────┘
-              │                                │
-      ┌───────▼────────┐          ┌────────────▼────────────┐
-      │  Local Storage │          │   Notification Worker   │
-      │ (AsyncStorage) │◄─────────┤     (Express.js)        │
-      └────────────────┘          └─────────────────────────┘
-```
+The application adheres to a strict modular architecture that prioritizes separation of concerns and maintainability. The codebase is organized into domain-specific directories that decouple UI components from business logic and infrastructure adapters:
+
+- **`app/` (Expo Router)**: Implements a file-based, URL-aware navigation system. The use of groups like `(auth)` and `(app)` provides native route guarding, ensuring the identity state is validated before accessing protected delivery orchestration logic.
+- **`src/context/` (State Management)**: Centralizes global identity state using the React Context API. This acts as a single source of truth for the driver's session, managing transitions between unauthenticated, partially authenticated (MFA pending), and fully authorized states.
+- **`src/lib/` (Infrastructure Adapters)**: Implements the Adapter pattern for external services. This allows the application to swap between a live Firebase instance and a local mock service seamlessly, significantly reducing the cost of integration testing.
+- **`components/` (UI/UX Layer)**: Follows an atomic design philosophy. Components are split between domain-neutral primitives and domain-specific molecules like `DeliveryCard`, which encapsulate complex interaction logic like "Slide-to-Confirm."
+
+### Navigation Flow & State Strategy
+
+Navigation is managed as a state machine. Upon app initialization, the `RootLayout` observes the `AuthContext` to determine the initial route. If no valid session exists, the driver is funneled into the `(auth)` group. Successful authentication triggers a transition to the `(app)` group. Within the app, state is primarily reactive; `onSnapshot` listeners in `DeliveriesScreen` ensure that the UI is an eventual-consistency reflection of the Firestore database.
+
+### Build Configuration
+
+The project utilizes **Expo SDK 54** with **EAS (Expo Application Services)** for production builds. This hybrid approach allows for rapid development using the Expo Go environment while maintaining the ability to generate customized prebuilds for native modules like `react-native-maps` and `expo-notifications`.
 
 ---
 
-## Project structure
+## 2. Environment Configuration (.env.example)
+
+The application relies on several environment-specific variables. To maintain security, actual credentials must never be committed to version control. Below is the template for `.env.example`, which should be copied to `.env` and populated with real project values.
 
 ```bash
-driver/
-├── app/                      # Expo Router file-based navigation tree
-│   ├── (app)/                # Protected delivery orchestration group
-│   │   ├── index.tsx         # Delivery dashboard: O(n) list with real-time sync
-│   │   ├── map.tsx           # Optimization engine: Route calculation & MapView
-│   │   ├── details.tsx       # Order detail: Atomic status management & editing
-│   │   └── profile.tsx       # Driver identity & session management
-│   ├── (auth)/               # Unauthenticated onboarding group
-│   │   ├── login.tsx         # Identity verification entry point
-│   │   ├── mobile.tsx        # MFA: Mobile number capture
-│   │   └── otp.tsx           # MFA: OTP verification logic
-│   └── _layout.tsx           # Global provider orchestration & route guarding
-├── src/
-│   ├── context/
-│   │   └── AuthContext.tsx   # Global state: Single source of truth for identity
-│   ├── lib/
-│   │   ├── firebase.ts       # Adapter pattern: Decoupled Firebase interface
-│   │   ├── mockFirebase.ts   # Local development data & mock methods
-│   │   └── notifications.ts  # Push notification registration & handling
-├── components/               # Atomic & Molecular UI components
-│   ├── custom/               # Domain-specific components (DeliveryCard, StatusPill)
-│   └── ui/                   # Shared primitive components
-├── constants/
-│   └── theme.ts              # Design system: Typography, Palette, Spacing
-└── scripts/
-    └── dev-worker.js         # Simulated FCM backend for local verification
+# --- FIREBASE CORE CONFIGURATION ---
+# Obtain these from your Firebase Console -> Project Settings -> General -> Your Apps
+FIREBASE_API_KEY=AIzaSy...           # Web API Key for authentication and SDK initialization
+FIREBASE_AUTH_DOMAIN=driver-app.firebaseapp.com
+FIREBASE_PROJECT_ID=driver-app-123   # Unique identifier for your Firebase project
+FIREBASE_STORAGE_BUCKET=driver-app-123.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=1234567 # Required for FCM push notification routing
+FIREBASE_APP_ID=1:1234567:web:abc...  # Specific ID for the React Native client
+
+# --- GOOGLE MAPS CONFIGURATION ---
+# Obtain from Google Cloud Console -> APIs & Services -> Credentials
+# Ensure Directions API, Distance Matrix API, and Maps SDK for Android/iOS are enabled.
+GOOGLE_MAPS_API_KEY=AIzaSy...        # Key for road-aware routing and polyline rendering
+
+# --- DEVELOPMENT FLAGS ---
+# Set to "true" to connect to local Firebase Emulators instead of production
+EXPO_PUBLIC_USE_EMULATORS=false
 ```
 
 ---
 
-## Technology decisions
+## 3. End-to-End Setup Guide
 
-### **Expo Router (File-based Navigation)**
+### Environment Preparation
 
-Chosen over `React Navigation` (Object-based) to leverage a more scalable, URL-aware routing system. It eliminates the maintenance overhead of large navigation configuration objects and provides out-of-the-box support for deep linking, which is critical for tapping push notifications directly into specific delivery details. At scale, this prevents "navigation state bloat" as the app grows to hundreds of screens.
+1. **Node.js**: Ensure you are using Node.js 18 (LTS) or later.
+2. **Global CLI**: Install the EAS CLI: `npm install -g eas-cli`.
+3. **Firebase Project**: Create a new project in the [Firebase Console](https://console.firebase.google.com/).
+   - Enable **Email/Password** in Authentication.
+   - Create a **Firestore** database in test mode.
+   - Register an Android/iOS app to obtain the configuration variables.
 
-### **React Context (Global State)**
+### Dependency Installation
 
-The `AuthContext` was chosen over `Redux` or `Zustand` because the application’s global state requirements are currently limited to authentication and driver identity. Context provides a native, low-boilerplate solution that avoids the complexity of external state managers while maintaining a clean "Single Source of Truth." If the app were to introduce complex offline caching or massive global data manipulation, we would transition to `Zustand` for its optimized selector-based re-renders.
-
-### **Firebase (Real-time DB & Auth)**
-
-Chosen because it eliminates the need for a custom WebSocket implementation. The `onSnapshot` listener provides a reactive data flow that is inherently difficult to replicate with traditional REST APIs without introducing significant latency or polling overhead. At production scale, we would introduce a Cloud Function middleware to gate Firestore writes, moving away from direct client-side SDK writes for enhanced security.
-
-### **Google Directions API**
-
-Utilized to bridge the gap between "as the crow flies" straight lines and real-world road networks. While standard `Polyline` components are easy to implement, road-aware routing is essential for driver trust and accurate ETA calculations.
-
----
-
-## State management
-
-The application employs a **Single Source of Truth** pattern via `AuthContext`. We manage the user's session as a state machine:
-
-- `Loading`: App initialization and session recovery.
-- `Unauthenticated`: Identity unknown, restricted to the `(auth)` group.
-- `Authenticated (Partial)`: Email verified but MFA (Mobile) pending.
-- `Authenticated (Full)`: Full access to delivery orchestration.
-
-We leverage **Derived State** in the delivery list, using `useMemo` to compute filtered views (Pending/Completed) without duplicating the underlying data in memory. This prevents **Impossible States** where a delivery could appear as both pending and completed simultaneously.
-
----
-
-## Error handling
-
-The application uses a **Layered Error Strategy**:
-
-1.  **UI Level**: Immediate feedback via `Alert.alert` for user-fixable errors (e.g., missing fields).
-2.  **Service Level**: Try-catch blocks wrap all Firebase and API operations, logging errors to the console while providing a fallback state to the user.
-3.  **Adapter Level**: The `firebase.ts` wrapper acts as a **Single Seam** for error normalization, ensuring that whether we are in Mock or Real mode, the UI receives a consistent error structure.
-
----
-
-## Performance optimisations
-
-### **O(1) Rendering with FlatList**
-
-In `app/(app)/index.tsx`, we utilize `FlatList` with optimized props to ensure smooth 60FPS scrolling even with hundreds of deliveries.
-
-```typescript
-// app/(app)/index.tsx
-<FlatList
-  removeClippedSubviews={true} // Unmounts off-screen components
-  maxToRenderPerBatch={10}     // Limits JS thread load per frame
-  windowSize={5}               // Constrains memory footprint
-/>
-```
-
-### **Stable References with useCallback**
-
-The `renderItem` and `onPress` handlers are wrapped in `useCallback` to prevent unnecessary re-renders of child components when the parent state changes.
-
-```typescript
-const renderItem = useCallback(({ item }) => (
-  <DeliveryCard {...item} />
-), [router]);
-```
-
-### **Memoized Derived State**
-
-Expensive filtering logic is wrapped in `useMemo` to ensure that searching for a shipment doesn't trigger a re-calculation unless the search query or the delivery list actually changes.
-
-```typescript
-const filteredDeliveries = useMemo(() => {
-  return list.filter((d) => d.customerName.includes(searchQuery));
-}, [deliveries, searchQuery]);
-```
-
----
-
-## Animations and UX
-
-Interaction design is treated as a first-class citizen.
-
-- **Slide-to-Confirm**: We implemented a custom `PanResponder` and `Animated` value to create a high-intent gesture for delivery confirmation. This prevents accidental status changes (butt-clicks) which are common in rugged driver environments.
-- **In-App Feedback**: The `InAppBanner` provides immediate visibility into new assignments while the app is in the foreground, bridging the gap between push notifications and the active UI state.
-- **Haptic Integration**: (Future) Tactical feedback would be added to the confirm gesture to provide O(1) physical confirmation to the driver.
-
----
-
-## Setup — step by step
-
-### **1. Clone and Install**
+Clone the repository and install dependencies using npm:
 
 ```bash
-git clone <repo-url>
-cd driver
 npm install
 ```
 
-### **2. Configure Environment**
+### Device & Emulator Configuration
 
-Copy `.env.example` to `.env` and fill in your Firebase/Google Maps credentials.
+- **Android**: Launch an AVD via Android Studio. Ensure "Google Play Services" is included in the image.
+- **iOS**: Launch a simulator via Xcode. Note that push notifications require a physical device or a simulator running on macOS 13+ with an Apple Silicon chip.
 
-```bash
-cp .env.example .env
-```
+### Triggering a Test Notification
 
-### **3. Run Development Environment**
-
-Start the Metro bundler and the notification worker in parallel:
-
-```bash
-# Terminal 1
-npm start
-
-# Terminal 2
-npm run worker
-```
-
----
-
-## Interview questions and answers
-
-### **"What breaks at scale?"**
-
-Direct Firestore listeners (`onSnapshot`) on large collections can become expensive. At scale (10k+ drivers), we would transition to a "Windowed Sync" strategy where only the most recent 50 deliveries are synced in real-time, and older records are fetched via paginated REST calls.
-
-### **"What's the race condition in your auth flow?"**
-
-In `app/_layout.tsx`, the redirect logic runs on every `segments` change. If the `user` object updates while a navigation transition is already in flight, there's a risk of multiple `router.replace` calls firing. We mitigate this by checking `loading` states and ensuring redirects only happen when the identity state is "Stable."
-
-### **"Why not write Firestore directly from the client in production?"**
-
-Direct client writes expose the database to malicious actors who could bypass app-level validation. In a production environment, we would use Firebase Security Rules to restrict writes or move all status updates to a Firebase Cloud Function to ensure server-side validation and audit logging.
-
-### **"Why did you choose nearest-neighbor for route optimization?"**
-
-It's a "Good Enough" solution for the Traveling Salesperson Problem (TSP) at the scale of 5-10 stops. At production scale (50+ stops), we would offload this to a backend service using a more sophisticated algorithm like Ant Colony Optimization or a dedicated logistics API (e.g., Routific).
-
-### **"How do you handle animations on the JS thread?"**
-
-We use the `useNativeDriver: true` property for our `Animated` values whenever possible (e.g., the Slide-to-Confirm gesture). This offloads the frame-by-frame calculations to the **UI Thread**, ensuring animations remain buttery smooth even if the **JS Thread** is busy with a large Firestore sync.
+1. **Start the Notification Worker**:
+   ```bash
+   npm run worker
+   ```
+2. **Execute the Payload**:
+   In a separate terminal, use `curl` to send a simulated FCM event to the local worker:
+   ```bash
+   curl -X POST http://localhost:3001/notifications \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "New Assignment",
+       "body": "You have a new delivery at Pier 39",
+       "driverId": "current-user-uid",
+       "data": { "orderId": "ORD-777", "deliveryId": "DEL-999" }
+     }'
+   ```
 
 ---
 
-## Known limitations and extension points
+## 4. Production APK Generation
 
-- **Offline Mode**: Currently relies on Firebase's built-in persistence. A production solution would implement a formal `OfflineSyncQueue` for status updates.
-- **Background Location**: Only fetches location when the app is active. Production requires `expo-location` background tasks to track drivers for fleet management.
-- **Unit Testing**: While the architecture is decoupled for testing, the current coverage is focused on core logic. Production would require 80%+ coverage using `Jest` and `React Native Testing Library`.
+### Signing Key Creation
+
+Before building, you must generate a secure keystore for Android app signing. This should be kept private and backed up securely.
+
+```bash
+keytool -genkey -v -keystore release.keystore -alias driver-alias -keyalg RSA -keysize 2048 -validity 10000
+```
+
+### Build Variants & Gradle Configuration
+
+The project is configured to support multiple build variants (development, preview, production). These are managed via `eas.json`.
+
+### Build Execution
+
+To generate a production-ready APK for sideloading:
+
+1. **Configure Build Profile**: Ensure `eas.json` has a profile with `distribution: internal`.
+2. **Run EAS Build**:
+   ```bash
+   eas build --platform android --profile preview
+   ```
+3. **Download & Sideload**: Once the build completes on the EAS servers, a URL will be provided. Download the `.apk` file and transfer it to your Android device for installation.
+
+### CI/CD Integration (Extension Point)
+
+For enterprise scale, this process should be automated via **GitHub Actions** or **Fastlane**.
+
+- **GitHub Actions**: Use the `expo/expo-github-action` to trigger EAS builds on every merge to `main`.
+- **Fastlane**: Implement `match` for credential management and `supply` to automatically upload successful builds to the Google Play Console Internal Track.
+
+---
+
+_This documentation is maintained by the Engineering Leadership team. For troubleshooting pathways or architectural clarifications, please refer to the internal technical wiki._

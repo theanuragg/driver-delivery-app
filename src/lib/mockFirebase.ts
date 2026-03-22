@@ -1,25 +1,33 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Mock Auth
+const authListeners: ((user: any) => void)[] = [];
+
 export const mockAuth = {
   currentUser: null as any,
   onAuthStateChanged: (callback: (user: any) => void) => {
+    authListeners.push(callback);
     AsyncStorage.getItem("mock_user").then((userStr) => {
       const user = userStr ? JSON.parse(userStr) : null;
       mockAuth.currentUser = user;
       callback(user);
     });
-    return () => {};
+    return () => {
+      const index = authListeners.indexOf(callback);
+      if (index !== -1) authListeners.splice(index, 1);
+    };
   },
   signInWithEmailAndPassword: async (email: string, pass: string) => {
     const user = { uid: "test-driver-id", email };
     await AsyncStorage.setItem("mock_user", JSON.stringify(user));
     mockAuth.currentUser = user;
+    authListeners.forEach((cb) => cb(user));
     return { user };
   },
   signOut: async () => {
     await AsyncStorage.removeItem("mock_user");
     mockAuth.currentUser = null;
+    authListeners.forEach((cb) => cb(null));
   },
 };
 

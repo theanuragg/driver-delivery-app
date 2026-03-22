@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           mobile: storedMobile || undefined,
         });
 
-        // Task 11: Handle FCM token registration
+        // Handle FCM token registration
         handleFCMRegistration(firebaseUser.uid);
       } else {
         setUser(null);
@@ -69,13 +69,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
           { merge: true },
         );
-        console.log(
-          `✅ FCM Token registered (${isDev ? "Dev" : "Prod"}):`,
-          token,
-        );
+        console.log(`FCM Token registered (${isDev ? "Dev" : "Prod"}):`, token);
       }
     } catch (e) {
-      console.error("❌ Failed to register FCM token:", e);
+      console.error("Failed to register FCM token:", e);
     }
   };
 

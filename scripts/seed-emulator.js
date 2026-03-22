@@ -25,11 +25,11 @@ const seedData = async () => {
         password: 'password123',
         uid: 'test-driver-id',
       });
-      console.log(`✅ Created test user: ${driverEmail}`);
+      console.log(` Created test user: ${driverEmail}`);
     } catch (e) {
       if (e.code === 'auth/uid-already-exists') {
         user = await auth.getUser('test-driver-id');
-        console.log(`ℹ️ User already exists: ${driverEmail}`);
+        console.log(` User already exists: ${driverEmail}`);
       } else {
         throw e;
       }
@@ -44,7 +44,7 @@ const seedData = async () => {
       status: 'active',
       lastLocation: new admin.firestore.GeoPoint(-33.8688, 151.2093),
     });
-    console.log('✅ Created driver record in Firestore');
+    console.log(' Created driver record in Firestore');
 
     // 3. Create Sample Deliveries
     const deliveries = [
@@ -87,12 +87,12 @@ const seedData = async () => {
     });
     
     await batch.commit();
-    console.log(`✅ Seeded ${deliveries.length} sample deliveries`);
+    console.log(` Seeded ${deliveries.length} sample deliveries`);
 
-    console.log('🚀 Seeding Complete! Ready for local development.');
+    console.log(' Seeding Complete! Ready for local development.');
     process.exit(0);
   } catch (error) {
-    console.error('❌ Seeding Failed:', error);
+    console.error(' Seeding Failed:', error);
     process.exit(1);
   }
 };

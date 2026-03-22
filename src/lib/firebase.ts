@@ -55,8 +55,8 @@ if (
 
   if (useEmulators) {
     // Connect to local emulators
-    connectAuthEmulator(realAuth, "http://localhost:9099");
-    connectFirestoreEmulator(realDb, "localhost", 8080);
+    connectAuthEmulator(realAuth, "http://127.0.0.1:9099");
+    connectFirestoreEmulator(realDb, "127.0.0.1", 8080);
     console.log("Firebase is running with Local Emulators.");
   }
 
