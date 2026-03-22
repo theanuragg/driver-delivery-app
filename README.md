@@ -21,6 +21,40 @@ The application adheres to a strict modular architecture that prioritizes separa
 
 Navigation is managed as a state machine. Upon app initialization, the `RootLayout` observes the `AuthContext` to determine the initial route. If no valid session exists, the driver is funneled into the `(auth)` group. Successful authentication triggers a transition to the `(app)` group. Within the app, state is primarily reactive; `onSnapshot` listeners in `DeliveriesScreen` ensure that the UI is an eventual-consistency reflection of the Firestore database.
 
+### Component Workflow Diagram
+
+The following diagram illustrates the high-level interaction between the core system components, global state providers, and external infrastructure:
+
+```ascii
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                ROOT LAYOUT (_layout.tsx)                    │
+│  Orchestrates Global Providers (AuthProvider, ThemeProvider, StatusBar)     │
+└──────────────────────┬──────────────────────────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                AUTH CONTEXT                                 │
+│  Manages identity state (loading, user, mobileVerified) via AsyncStorage    │
+└──────────────────────┬───────────────────────────────┬──────────────────────┘
+                       │                               │
+        [Unauthenticated]                              │ [Authenticated]
+                       ▼                               ▼
+┌───────────────────────────────────────┐    ┌────────────────────────────────┐
+│           (auth) ROUTE GROUP          │    │         (app) ROUTE GROUP      │
+│  - LoginScreen (Firebase Auth)        │    │  - DeliveriesScreen (onSnapshot)│
+│  - MobileScreen (Capture MFA)         │    │  - RouteScreen (Optimization)   │
+│  - OTPScreen (Verify 123456)          │    │  - DetailScreen (Status Update) │
+└──────────────────────┬────────────────┘    └────────────────┬───────────────┘
+                       │                                      │
+                       │              REACTIVE UI             │
+                       ▼                                      ▼
+┌───────────────────────────────────────┐    ┌────────────────────────────────┐
+│          UI ATOMIC COMPONENTS         │◄───┤       EXTERNAL SERVICES        │
+│  - DeliveryCard (Interactive)         │    │  - Firebase (Firestore/Auth)   │
+│  - StatusPill (Visual State)          │    │  - Google Directions API       │
+│  - InAppBanner (Push Redirection)     │    │  - Notification Worker (Local) │
+└───────────────────────────────────────┘    └────────────────────────────────┘
+```
+
 ### Build Configuration
 
 The project utilizes **Expo SDK 54** with **EAS (Expo Application Services)** for production builds. This hybrid approach allows for rapid development using the Expo Go environment while maintaining the ability to generate customized prebuilds for native modules like `react-native-maps` and `expo-notifications`.
